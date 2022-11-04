@@ -7,6 +7,8 @@ const inputDistance = document.querySelector('.form__input--distance');
 const inputDuration = document.querySelector('.form__input--duration');
 const inputCadence = document.querySelector('.form__input--cadence');
 const inputElevation = document.querySelector('.form__input--elevation');
+const deleteAllWorkouts = document.querySelector('.btn__delete--all');
+const btnDeleteWorkout = document.querySelector('.btn__delete--workout');
 
 class Workout {
   date = new Date();
@@ -65,7 +67,7 @@ class Cycling extends Workout {
 class App {
   #map;
   #mapEvent;
-  #workouts = [];
+  workouts = [];
   lat;
   lng;
 
@@ -81,6 +83,11 @@ class App {
     form.addEventListener('submit', this._newWorkout.bind(this));
     inputType.addEventListener('change', this._toggleElevationField);
     containerWorkouts.addEventListener('click', this._movetoPopup.bind(this));
+    deleteAllWorkouts.addEventListener(
+      'click',
+      this._deleteAllWorkouts.bind(this)
+    );
+    document.addEventListener('click', this._deleteWorkout.bind(this));
   }
 
   _getPosition() {
@@ -109,7 +116,7 @@ class App {
     //Handling clicks on map
     this.#map.on('click', this._showForm.bind(this));
 
-    this.#workouts.forEach(work => {
+    this.workouts.forEach(work => {
       this._renderWorkoutMarker(work);
     });
   }
@@ -178,7 +185,7 @@ class App {
     }
 
     // add new object to workout array
-    this.#workouts.push(workout);
+    this.workouts.push(workout);
 
     // render workout on map as marker
     this._renderWorkoutMarker(workout);
@@ -212,7 +219,10 @@ class App {
   _renderWorkout(workout) {
     let html = `
       <li class="workout workout--${workout.type}" data-id="${workout.id}">
-          <h2 class="workout__title">${workout.description}</h2>
+          <h2 class="workout__title">${workout.description}
+          <button type="button" class="btn__edit--workout"> Edit </button>
+          <button type="button" class="btn__delete--workout"> Delete </button>
+          </h2>
           <div class="workout__details">
             <span class="workout__icon">${
               workout.type === 'running' ? '🏃‍♂️' : '🚴‍♀️'
@@ -257,12 +267,21 @@ class App {
     form.insertAdjacentHTML('afterend', html);
   }
 
-  _movetoPopup(e) {
+  _findClosestWorkout(e) {
     const workoutEl = e.target.closest('.workout');
     if (!workoutEl) return;
-    const workout = this.#workouts.find(
+    const workout = this.workouts.find(
       work => work.id === workoutEl.dataset.id
     );
+    return workout;
+  }
+
+  _movetoPopup(e) {
+    const workout = this._findClosestWorkout(e);
+    if (this.#map === undefined) {
+      alert('Please wait for map to load! ');
+      return;
+    }
     this.#map.setView(workout.coord, 13, {
       animate: true,
       pan: {
@@ -273,15 +292,32 @@ class App {
     //using public interface
   }
 
+  _deleteWorkout(e) {
+    if (e.target && e.target.className === 'btn__delete--workout') {
+      const workout = this._findClosestWorkout(e);
+      this.workouts.forEach((wo, idx) => {
+        if (wo === workout) {
+          this.workouts.splice(idx, 1);
+        }
+      });
+      this._setLocalStorage();
+      location.reload();
+    }
+  }
+
+  _deleteAllWorkouts() {
+    this.reset();
+  }
+
   _setLocalStorage() {
-    localStorage.setItem('workouts', JSON.stringify(this.#workouts));
+    localStorage.setItem('workouts', JSON.stringify(this.workouts));
   }
 
   _getLocalStorage() {
     const data = JSON.parse(localStorage.getItem('workouts'));
     if (!data) return;
-    this.#workouts = data;
-    this.#workouts.forEach(work => {
+    this.workouts = data;
+    this.workouts.forEach(work => {
       this._renderWorkout(work);
     });
   }
